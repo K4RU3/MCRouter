@@ -9,7 +9,13 @@ use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let domain_map = load_and_build_domain_map("config.toml")?;
+    let domain_map = match load_and_build_domain_map("config.toml") {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("設定ファイル読み込みエラー: {}", e);
+            return Err(e);
+        }
+    };
 
     let listener = TcpListener::bind("0.0.0.0:8081").await?;
     println!("TCPプロキシサーバ起動...");
@@ -24,4 +30,3 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 }
-
