@@ -41,8 +41,16 @@ pub async fn read_string(stream: &mut TcpStream) -> io::Result<String> {
     Ok(String::from_utf8_lossy(&buf).to_string())
 }
 
-pub async fn parse_first_packet(stream: &mut TcpStream) -> io::Result<FirstPacket> {
+pub async fn parse_first_packet(stream: &mut TcpStream) -> io::Result<(FirstPacket, Vec<u8>)> {
     let packet_len = read_varint(stream).await?;
+
+    let packet_len_varint = encode_varint(packet_len as i32);
+    let mut buf = vec![0u8; packet_len as usize];
+    let _ = stream.peek(&mut buf).await?;
+    let mut full_packet_buff = Vec::with_capacity(packet_len_varint.len() + buf.len());
+    full_packet_buff.extend_from_slice(&packet_len_varint);
+    full_packet_buff.extend_from_slice(&buf);
+
     let packet_id = read_varint(stream).await?;
     let version = read_varint(stream).await?;
     let domain = read_string(stream).await?;
@@ -51,26 +59,28 @@ pub async fn parse_first_packet(stream: &mut TcpStream) -> io::Result<FirstPacke
     let port = u16::from_be_bytes(port_buf);
     let state = read_varint(stream).await?;
 
-    Ok(FirstPacket {
+    Ok((FirstPacket {
         packet_len,
         packet_id,
         version,
         domain,
         port,
         state,
-    })
+    }, full_packet_buff))
 }
 
-pub fn encode_varint(mut value: i32) -> Vec<u8> {
+pub fn encode_varint(value: i32) -> Vec<u8> {
     let mut buffer = Vec::new();
+    let mut uvalue = value as u32;  // 符号なしに変換して扱う
+
     loop {
-        let mut temp = (value & 0b0111_1111) as u8;
-        value >>= 7;
-        if value != 0 {
-            temp |= 0b1000_0000;
+        let mut temp = (uvalue & 0b0111_1111) as u8;
+        uvalue >>= 7;  // 符号なし右シフトとして機能する
+        if uvalue != 0 {
+            temp |= 0b1000_0000;  // 続きビットをセット
         }
         buffer.push(temp);
-        if value == 0 {
+        if uvalue == 0 {
             break;
         }
     }
