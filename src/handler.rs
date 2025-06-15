@@ -12,8 +12,10 @@ pub async fn handle_connection(mut stream: TcpStream, domain_map: HashMap<String
     if first_packet.packet_id != 0 {
         return Ok(());
     }
+    
+    let domain_without_suffix = first_packet.domain.split('\0').next().unwrap_or("");
 
-    if let Some(forward_addr) = domain_map.get(&first_packet.domain) {
+    if let Some(forward_addr) = domain_map.get(domain_without_suffix) {
         println!("転送先: {}", forward_addr);
         start_proxy(stream, forward_addr.clone(), full_packet_buf).await?;
     } else {
