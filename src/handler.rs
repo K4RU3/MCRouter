@@ -24,6 +24,7 @@ pub async fn handle_connection(mut stream: TcpStream, domain_map: HashMap<String
         let message = generate_unknown_domain_message(&first_packet.domain, &domain_map);
         let disconnect_packet = create_login_disconnect_packet(&message);
         stream.write_all(&disconnect_packet).await?;
+        stream.flush().await?;
         stream.shutdown().await?;
     }
     Ok(())
